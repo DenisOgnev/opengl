@@ -2,6 +2,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <shader.hpp>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -70,10 +71,16 @@ private:
     uint32_t EBO;
     Shader shader;
 
-    int32_t texture_width, texture_height, texture_channels;
-    unsigned char *data;
+    struct Texture
+    {
+        int32_t texture_width, texture_height, texture_channels;
+        unsigned char *data;
 
-    uint32_t texture_id;
+        uint32_t texture_id;
+    };
+
+    std::string texture_paths[2] = {"../../textures/container.jpg", "../../textures/awesomeface.png"};
+    Texture textures[2];
     
 
     void main_loop()
@@ -117,29 +124,6 @@ private:
     }
 
 
-    int clamp(int32_t value, int32_t lowest, int32_t highest)
-    {
-        if (value > highest)
-        {
-            return highest;
-        }
-        if (value < lowest)
-        {
-            return lowest;
-        }
-        return value;
-    }
-
-
-    void process_input()
-    {
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        {
-            glfwSetWindowShouldClose(window, true);
-        }
-    }
-
-
     void create_objects()
     {
         glGenVertexArrays(1, &VAO);
@@ -162,23 +146,46 @@ private:
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices.data(), GL_STATIC_DRAW);
 
-        data = stbi_load("../../textures/container.jpg", &texture_width, &texture_height, &texture_channels, 0);
+        textures[0].data = stbi_load(texture_paths[0].c_str(), &textures[0].texture_width, &textures[0].texture_height, &textures[0].texture_channels, 0);
 
-        if (!data)
+        if (!textures[0].data)
         {
             throw std::runtime_error("Failed to load texture.");
         }
 
-        glGenTextures(1, &texture_id);
-        glBindTexture(GL_TEXTURE_2D, texture_id);
+        glActiveTexture(GL_TEXTURE0);
+        glGenTextures(1, &textures[0].texture_id);
+        glBindTexture(GL_TEXTURE_2D, textures[0].texture_id);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texture_width, texture_height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textures[0].texture_width, textures[0].texture_height, 0, GL_RGB, GL_UNSIGNED_BYTE, textures[0].data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
-        stbi_image_free(data);
+        stbi_image_free(textures[0].data);
+
+        stbi_set_flip_vertically_on_load(true);
+        textures[1].data = stbi_load(texture_paths[1].c_str(), &textures[1].texture_width, &textures[1].texture_height, &textures[1].texture_channels, 0);
+
+        if (!textures[1].data)
+        {
+            throw std::runtime_error("Failed to load texture.");
+        }
+
+        glActiveTexture(GL_TEXTURE1);
+        glGenTextures(1, &textures[1].texture_id);
+        glBindTexture(GL_TEXTURE_2D, textures[1].texture_id);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textures[1].texture_width, textures[1].texture_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, textures[1].data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        stbi_image_free(textures[1].data);
+        shader.set_int("input_texture1", 0);
+        shader.set_int("input_texture2", 1);
     }
 
 
@@ -188,6 +195,29 @@ private:
         glClear(GL_COLOR_BUFFER_BIT);
         shader.use();
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_INT, nullptr);
+    }
+
+
+    int clamp(int32_t value, int32_t lowest, int32_t highest)
+    {
+        if (value > highest)
+        {
+            return highest;
+        }
+        if (value < lowest)
+        {
+            return lowest;
+        }
+        return value;
+    }
+
+
+    void process_input()
+    {
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        {
+            glfwSetWindowShouldClose(window, true);
+        }
     }
 };
 
