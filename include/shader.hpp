@@ -70,7 +70,7 @@ public:
         {
             glGetShaderInfoLog(vertex, 512, nullptr, error_log);
             std::cout << error_log << "\n";
-            throw std::runtime_error("Vertex shader compilation failed");
+            throw std::runtime_error("Vertex shader compilation failed.");
         }
 
         glGetShaderiv(fragment, GL_COMPILE_STATUS, &error_status);
@@ -78,7 +78,7 @@ public:
         {
             glGetShaderInfoLog(fragment, 512, nullptr, error_log);
             std::cout << error_log << "\n";
-            throw std::runtime_error("Fragment shader compilation failed");
+            throw std::runtime_error("Fragment shader compilation failed.");
         }
 
         ID = glCreateProgram();
@@ -91,7 +91,7 @@ public:
         {
             glGetProgramInfoLog(ID, 512, nullptr, error_log);
             std::cout << error_log << "\n";
-            throw std::runtime_error("Shader link failed");
+            throw std::runtime_error("Shader link failed.");
         }
         glDeleteShader(vertex);
         glDeleteShader(fragment);
