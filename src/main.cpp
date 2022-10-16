@@ -2,6 +2,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <shader.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -23,10 +25,47 @@ const std::string fragment_shader_path = "../../src/frag_shader.frag";
 
 
 const std::array vertices = {
-     0.5f,  0.5f,  0.0f,    1.0f,  0.0f,  0.0f,    1.0f,  1.0f,
-     0.5f, -0.5f,  0.0f,    0.0f,  1.0f,  0.0f,    1.0f,  0.0f,
-    -0.5f, -0.5f,  0.0f,    0.0f,  0.0f,  1.0f,    0.0f,  0.0f,
-    -0.5f,  0.5f,  0.0f,    1.0f,  0.0f,  1.0f,    0.0f,  1.0f
+    -0.5f, -0.5f, -0.5f,    0.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,    1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,    1.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,    1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,    0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,    0.0f, 0.0f,
+
+    -0.5f, -0.5f,  0.5f,    0.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,    1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,    1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,    1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,    0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,    0.0f, 0.0f,
+
+    -0.5f,  0.5f,  0.5f,    1.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,    1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,    0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,    0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,    0.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,    1.0f, 0.0f,
+
+     0.5f,  0.5f,  0.5f,    1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,    1.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,    0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,    0.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,    0.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,    1.0f, 0.0f,
+
+    -0.5f, -0.5f, -0.5f,    0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,    1.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,    1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,    1.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,    0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f,    0.0f, 1.0f,
+
+    -0.5f,  0.5f, -0.5f,    0.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,    1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,    1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,    1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,    0.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,    0.0f, 1.0f
 };
 
 const std::array indices = {
@@ -71,6 +110,8 @@ private:
     uint32_t EBO;
     Shader shader;
 
+    float mix_value = 0.5f;
+
     struct Texture
     {
         int32_t texture_width, texture_height, texture_channels;
@@ -81,6 +122,10 @@ private:
 
     std::string texture_paths[2] = {"../../textures/container.jpg", "../../textures/awesomeface.png"};
     Texture textures[2];
+
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 view = glm::mat4(1.0f);
+    glm::mat4 projection = glm::mat4(1.0f);
     
 
     void main_loop()
@@ -115,12 +160,13 @@ private:
         {
             throw std::runtime_error("Failed to initialize GLAD.");
         }
-
+        glEnable(GL_DEPTH_TEST);
         glViewport(0, 0, width, height);
         glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
         shader.init();
         shader.use();
+        shader.set_float("mix_value", mix_value);
     }
 
 
@@ -133,14 +179,11 @@ private:
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_STATIC_DRAW);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 8, (void*)(0));
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (void*)(0));
         glEnableVertexAttribArray(0);
 
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 8, (void*)(sizeof(float) * 3));
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (void*)(sizeof(float) * 3));
         glEnableVertexAttribArray(1);
-
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 8, (void*)(sizeof(float) * 6));
-        glEnableVertexAttribArray(2);
 
         glGenBuffers(1, &EBO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -186,15 +229,30 @@ private:
         stbi_image_free(textures[1].data);
         shader.set_int("input_texture1", 0);
         shader.set_int("input_texture2", 1);
+
+        model = glm::mat4(1.0f);
+        model = glm::rotate(model, glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+
+        view = glm::mat4(1.0f);
+        view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+
+        projection = glm::perspective(glm::radians(45.0f), width / static_cast<float>(height), 0.1f, 100.0f);
+
+        shader.set_mat4("model", model);
+        shader.set_mat4("view", view);
+        shader.set_mat4("projection", projection);
     }
 
 
     void render()
     {
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         shader.use();
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_INT, nullptr);
+
+
+        // glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_INT, nullptr);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
     }
 
 
@@ -217,6 +275,18 @@ private:
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         {
             glfwSetWindowShouldClose(window, true);
+        }
+        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        {
+            mix_value += 0.01f;
+            if (mix_value >= 1.0f) mix_value = 1.0f;
+            shader.set_float("mix_value", mix_value);
+        }
+        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        {
+            mix_value -= 0.01f;
+            if (mix_value <= 0.0f) mix_value = 0.0f;
+            shader.set_float("mix_value", mix_value);
         }
     }
 };
