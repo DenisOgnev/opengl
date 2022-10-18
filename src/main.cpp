@@ -21,21 +21,6 @@ const std::string vertex_shader_path = "../../src/vert_shader.vert";
 const std::string fragment_shader_path = "../../src/frag_shader.frag";
 
 
-// const std::array vertices = {
-//      0.0f,  0.5f,  0.0f,    1.0f,  0.0f,  0.0f,
-//     -0.5f, -0.5f,  0.0f,    0.0f,  1.0f,  0.0f,
-//      0.5f, -0.5f,  0.0f,    0.0f,  0.0f,  1.0f
-// };
-
-
-// const std::array indices = {
-//     0, 1, 2
-// };
-
-std::vector<float> vertices;
-std::vector<uint32_t> indices;
-
-
 class OpenGlApp
 {
 public:
@@ -71,14 +56,21 @@ private:
     uint32_t EBO;
     Shader shader;
 
+    struct Vertex
+    {
+        glm::vec3 position;
+        glm::vec3 color;
+    };
+
     struct Mesh
     {
         uint32_t vertices_size;
         uint32_t indices_size;
-        std::unique_ptr<float[]> vertices;
+        std::unique_ptr<Vertex[]> vertices;
         std::unique_ptr<uint32_t[]> indices;
     };
     
+    Mesh mesh;
     
 
     void main_loop()
@@ -125,44 +117,24 @@ private:
 
     void create_objects()
     {
-        float r = 0.5f;
-        uint32_t vertices_count = 8;
-        float angle = std::ceilf(360 / static_cast<float>(vertices_count));
-        
-        vertices.push_back(0.0f);
-        vertices.push_back(0.0f);
-        vertices.push_back(0.0f);
-        vertices.push_back((rand() % 255) / 255.0f);
-        vertices.push_back((rand() % 255) / 255.0f);
-        vertices.push_back((rand() % 255) / 255.0f);
+        Vertex vertex {glm::vec3(0.0f), glm::vec3(0.0f)};
 
-        for (uint32_t i = 0; i < vertices_count; i++)
-        {
-            float current_angle = glm::radians(static_cast<float>(i) * angle);
-            
-            float x = r * cosf(current_angle);
-            float y = r * sinf(current_angle);
+        std::array<Vertex, 3> vertices =  {
+            Vertex{glm::vec3( 0.0f,  0.5f,  0.0f), glm::vec3(1.0f, 0.0f, 0.0f)},
+            Vertex{glm::vec3(-0.5f, -0.5f,  0.0f), glm::vec3(0.0f, 1.0f, 0.0f)},
+            Vertex{glm::vec3( 0.5f, -0.5f,  0.0f), glm::vec3(0.0f, 0.0f, 1.0f)}
+        };
 
-            vertices.push_back(x);
-            vertices.push_back(y);
-            vertices.push_back(0.0f);
+        std::array<uint32_t, 3> indices = {0, 1, 2};
 
-            vertices.push_back((rand() % 255) / 255.0f);
-            vertices.push_back((rand() % 255) / 255.0f);
-            vertices.push_back((rand() % 255) / 255.0f);
-
-            indices.push_back(0);
-            indices.push_back(i + 1);
-            indices.push_back((i + 1) % vertices_count + 1);
-        }
-        std::cout << indices.size() << "\n";
+        mesh = get_circle_mesh(8, 0.5f);
 
         glGenVertexArrays(1, &VAO);
         glBindVertexArray(VAO);
 
         glGenBuffers(1, &VBO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * mesh.vertices_size, mesh.vertices.get(), GL_STATIC_DRAW);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void*)(0));
         glEnableVertexAttribArray(0);
@@ -172,7 +144,7 @@ private:
 
         glGenBuffers(1, &EBO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * indices.size(), indices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * mesh.indices_size, mesh.indices.get(), GL_STATIC_DRAW);
     }
 
 
@@ -182,7 +154,7 @@ private:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         shader.use();
 
-        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 24, GL_UNSIGNED_INT, 0);
     }
 
 
@@ -192,6 +164,40 @@ private:
         {
             glfwSetWindowShouldClose(window, true);
         }
+    }
+
+
+    Mesh get_circle_mesh(uint32_t vertices_count, float radius)
+    {
+        if (vertices_count < 3)
+        {
+            throw std::runtime_error("Wrong vertices count");
+        }
+        Mesh result_mesh;
+        result_mesh.vertices_size = vertices_count + 1;
+        result_mesh.indices_size = vertices_count * 3;
+        result_mesh.vertices = std::make_unique<Vertex[]>(result_mesh.vertices_size);
+        result_mesh.indices = std::make_unique<uint32_t[]>(result_mesh.indices_size);
+
+        float angle = std::ceilf(360 / static_cast<float>(vertices_count));
+
+        result_mesh.vertices[0] = Vertex{glm::vec3(0.0f), glm::vec3((rand() % 255) / 255.0f, (rand() % 255) / 255.0f, (rand() % 255) / 255.0f)};
+        
+        for (uint32_t i = 0; i < vertices_count; i++)
+        {
+            float current_angle = glm::radians(static_cast<float>(i) * angle);
+            
+            float x = radius * cosf(current_angle);
+            float y = radius * sinf(current_angle);
+
+            result_mesh.vertices[i + 1] = Vertex{glm::vec3(x, y, 0.0f), glm::vec3((rand() % 255) / 255.0f, (rand() % 255) / 255.0f, (rand() % 255) / 255.0f)};
+
+            result_mesh.indices[i * 3] = 0;
+            result_mesh.indices[i * 3 + 1] = i + 1;
+            result_mesh.indices[i * 3 + 2] = (i + 1) % vertices_count + 1;
+        }
+        
+        return result_mesh;
     }
 
 
