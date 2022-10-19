@@ -71,12 +71,24 @@ private:
     };
     
     Mesh mesh;
+
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 projection;
+
+    float rotate_angle = 30.0f;
+    float delta_time = 0.0f;
     
 
     void main_loop()
     {
         while (!glfwWindowShouldClose(window))
         {
+            update_variables();
+            
             process_input();
 
             render();
@@ -107,34 +119,138 @@ private:
             throw std::runtime_error("Failed to initialize GLAD.");
         }
         glEnable(GL_DEPTH_TEST);
-        glViewport(0, 0, width, height);
-        glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
         shader.init();
         shader.use();
+
+        glViewport(0, 0, width, height);
+        glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     }
 
 
     void create_objects()
     {
-        Vertex vertex {glm::vec3(0.0f), glm::vec3(0.0f)};
+        model = glm::mat4(1.0f);
+        model = glm::scale(model, glm::vec3(0.7f));
+        view = glm::mat4(1.0f);
+        view = glm::translate(view, glm::vec3(0.0f, 0.0f, -1.0f));
+        projection = glm::perspective(glm::radians(45.0f), width / static_cast<float>(height), 0.1f, 100.0f);
 
-        std::array<Vertex, 3> vertices =  {
-            Vertex{glm::vec3( 0.0f,  0.5f,  0.0f), glm::vec3(1.0f, 0.0f, 0.0f)},
-            Vertex{glm::vec3(-0.5f, -0.5f,  0.0f), glm::vec3(0.0f, 1.0f, 0.0f)},
-            Vertex{glm::vec3( 0.5f, -0.5f,  0.0f), glm::vec3(0.0f, 0.0f, 1.0f)}
-        };
-
-        std::array<uint32_t, 3> indices = {0, 1, 2};
+        shader.set_mat4("model", model);
+        shader.set_mat4("view", view);
+        shader.set_mat4("projection", projection);
 
         mesh = get_circle_mesh(8, 0.5f);
+
+        float radius = 0.5f;
+        uint32_t segments = 32;
+        uint32_t ring_segments = 32;
+        float alpha_step = 180 / static_cast<float>(segments);
+        float beta_step = 360 / static_cast<float>(ring_segments);
+
+        for (uint32_t i = 0; i <= segments; i++)
+        {
+            float alpha = glm::radians(i * alpha_step);
+            float sin_alpha = std::sinf(alpha);
+            float cos_alpha = std::cosf(alpha);
+            float radius_dot_sin_alpha = radius * sin_alpha;
+            float y = radius * cos_alpha;
+
+            for (uint32_t j = 0; j < ring_segments; j++)
+            {
+                float beta = glm::radians(j * beta_step);
+                float sin_beta = std::sinf(beta);
+                float cos_beta = std::cosf(beta);
+                float x = radius_dot_sin_alpha * sin_beta;
+                float z = radius_dot_sin_alpha * cos_beta;
+                
+                vertices.push_back(Vertex{glm::vec3(x, y, z), glm::vec3((rand() % 255) / 255.0f, (rand() % 255) / 255.0f, (rand() % 255) / 255.0f)});
+
+                if (i == 0 || i == segments)
+                {
+                    break;
+                }
+            }
+        }
+
+        for (uint32_t i = 0; i < segments; i++)
+        {
+            for (uint32_t j = 0; j < ring_segments; j++)
+            {
+                if (i == 0)
+                {
+                    indices.push_back(i);
+                    indices.push_back(i + j + 1);
+                    if (j == ring_segments - 1)
+                        indices.push_back((i + j + 2) % ring_segments);
+                    else
+                        indices.push_back(i + j + 2);
+                }
+                else if (i == segments - 1)
+                {
+                    indices.push_back(i * ring_segments + 1);
+                    indices.push_back(ring_segments * (i - 1) + j + 1);
+                    if (j == ring_segments - 1)
+                        indices.push_back(ring_segments * (i - 1) + (j + 2) % ring_segments);
+                    else
+                        indices.push_back(ring_segments * (i - 1) + j + 2);
+                }
+                else
+                {
+                    indices.push_back(ring_segments * (i - 1) + j + 1);
+                    if (j == ring_segments - 1)
+                    {
+                        indices.push_back(ring_segments * (i - 1) + (j + 2) % ring_segments);
+                        indices.push_back(ring_segments * (i - 1) + (j + 2));
+                    }
+                    else
+                    {
+                        indices.push_back(ring_segments * (i - 1) + (j + 2));
+                        indices.push_back(ring_segments * (i - 1) + j + 2 + ring_segments);
+                    }
+
+                    indices.push_back(ring_segments * (i - 1) + j + 1);
+                    if (j == ring_segments - 1)
+                    {
+                        indices.push_back(ring_segments * (i - 1) + (j + 2 + (ring_segments - 1)));
+                        indices.push_back(ring_segments * (i - 1) + (j + 2));
+                    }
+                    else
+                    {
+                        indices.push_back(ring_segments * (i - 1) + (j + 2 + (ring_segments - 1)));
+                        indices.push_back(ring_segments * (i - 1) + j + 2 + ring_segments);
+                    }
+                }
+            }
+        }
+
+
+
+        // indices = {
+        //     0, 1, 2,
+        //     0, 2, 3,
+        //     0, 3, 1,
+
+        //     1, 2, 5,
+        //     5, 4, 1,
+        //     2, 3, 6,
+        //     6, 5, 2,
+        //     3, 6, 1,
+        //     1, 4, 6,
+
+        //     7, 4, 5,
+        //     7, 5, 6,
+        //     7, 6, 4
+        // };
+
+               
 
         glGenVertexArrays(1, &VAO);
         glBindVertexArray(VAO);
 
         glGenBuffers(1, &VBO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * mesh.vertices_size, mesh.vertices.get(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void*)(0));
         glEnableVertexAttribArray(0);
@@ -144,7 +260,7 @@ private:
 
         glGenBuffers(1, &EBO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * mesh.indices_size, mesh.indices.get(), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * indices.size(), indices.data(), GL_STATIC_DRAW);
     }
 
 
@@ -154,7 +270,15 @@ private:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         shader.use();
 
-        glDrawElements(GL_TRIANGLES, 24, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
+        // glDrawArrays(GL_POINTS, 0, vertices.size());
+    }
+
+
+    void update_variables()
+    {
+        delta_time = static_cast<float>(glfwGetTime());
+        glfwSetTime(0.0);
     }
 
 
@@ -163,6 +287,16 @@ private:
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         {
             glfwSetWindowShouldClose(window, true);
+        }
+        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+        {
+            model = glm::rotate(model, glm::radians(rotate_angle * delta_time), glm::vec3(0.0f, 1.0f, 0.0f));
+            shader.set_mat4("model", model);
+        }
+        if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        {
+            model = glm::rotate(model, glm::radians(-rotate_angle * delta_time), glm::vec3(0.0f, 1.0f, 0.0f));
+            shader.set_mat4("model", model);
         }
     }
 
@@ -179,7 +313,7 @@ private:
         result_mesh.vertices = std::make_unique<Vertex[]>(result_mesh.vertices_size);
         result_mesh.indices = std::make_unique<uint32_t[]>(result_mesh.indices_size);
 
-        float angle = std::ceilf(360 / static_cast<float>(vertices_count));
+        float angle = 360 / static_cast<float>(vertices_count);
 
         result_mesh.vertices[0] = Vertex{glm::vec3(0.0f), glm::vec3((rand() % 255) / 255.0f, (rand() % 255) / 255.0f, (rand() % 255) / 255.0f)};
         
@@ -187,8 +321,8 @@ private:
         {
             float current_angle = glm::radians(static_cast<float>(i) * angle);
             
-            float x = radius * cosf(current_angle);
-            float y = radius * sinf(current_angle);
+            float x = radius * std::cosf(current_angle);
+            float y = radius * std::sinf(current_angle);
 
             result_mesh.vertices[i + 1] = Vertex{glm::vec3(x, y, 0.0f), glm::vec3((rand() % 255) / 255.0f, (rand() % 255) / 255.0f, (rand() % 255) / 255.0f)};
 
@@ -211,6 +345,9 @@ private:
         width = _width;
         height = _height;
         glViewport(0, 0, width, height);
+
+        projection = glm::perspective(glm::radians(45.0f), width / static_cast<float>(height), 0.1f, 100.0f);
+        shader.set_mat4("projection", projection);
     }
 
 
