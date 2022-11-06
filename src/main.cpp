@@ -140,117 +140,19 @@ private:
         shader.set_mat4("view", view);
         shader.set_mat4("projection", projection);
 
-        mesh = get_circle_mesh(8, 0.5f);
-
         float radius = 0.5f;
-        uint32_t segments = 32;
-        uint32_t ring_segments = 32;
-        float alpha_step = 180 / static_cast<float>(segments);
-        float beta_step = 360 / static_cast<float>(ring_segments);
+        uint32_t segments = 3;
+        uint32_t ring_segments = 4;
+        
+        mesh = get_sphere_mesh(segments, ring_segments, radius);
 
-        for (uint32_t i = 0; i <= segments; i++)
-        {
-            float alpha = glm::radians(i * alpha_step);
-            float sin_alpha = std::sinf(alpha);
-            float cos_alpha = std::cosf(alpha);
-            float radius_dot_sin_alpha = radius * sin_alpha;
-            float y = radius * cos_alpha;
-
-            for (uint32_t j = 0; j < ring_segments; j++)
-            {
-                float beta = glm::radians(j * beta_step);
-                float sin_beta = std::sinf(beta);
-                float cos_beta = std::cosf(beta);
-                float x = radius_dot_sin_alpha * sin_beta;
-                float z = radius_dot_sin_alpha * cos_beta;
-                
-                vertices.push_back(Vertex{glm::vec3(x, y, z), glm::vec3((rand() % 255) / 255.0f, (rand() % 255) / 255.0f, (rand() % 255) / 255.0f)});
-
-                if (i == 0 || i == segments)
-                {
-                    break;
-                }
-            }
-        }
-
-        for (uint32_t i = 0; i < segments; i++)
-        {
-            for (uint32_t j = 0; j < ring_segments; j++)
-            {
-                if (i == 0)
-                {
-                    indices.push_back(i);
-                    indices.push_back(i + j + 1);
-                    if (j == ring_segments - 1)
-                        indices.push_back((i + j + 2) % ring_segments);
-                    else
-                        indices.push_back(i + j + 2);
-                }
-                else if (i == segments - 1)
-                {
-                    indices.push_back(i * ring_segments + 1);
-                    indices.push_back(ring_segments * (i - 1) + j + 1);
-                    if (j == ring_segments - 1)
-                        indices.push_back(ring_segments * (i - 1) + (j + 2) % ring_segments);
-                    else
-                        indices.push_back(ring_segments * (i - 1) + j + 2);
-                }
-                else
-                {
-                    indices.push_back(ring_segments * (i - 1) + j + 1);
-                    if (j == ring_segments - 1)
-                    {
-                        indices.push_back(ring_segments * (i - 1) + (j + 2) % ring_segments);
-                        indices.push_back(ring_segments * (i - 1) + (j + 2));
-                    }
-                    else
-                    {
-                        indices.push_back(ring_segments * (i - 1) + (j + 2));
-                        indices.push_back(ring_segments * (i - 1) + j + 2 + ring_segments);
-                    }
-
-                    indices.push_back(ring_segments * (i - 1) + j + 1);
-                    if (j == ring_segments - 1)
-                    {
-                        indices.push_back(ring_segments * (i - 1) + (j + 2 + (ring_segments - 1)));
-                        indices.push_back(ring_segments * (i - 1) + (j + 2));
-                    }
-                    else
-                    {
-                        indices.push_back(ring_segments * (i - 1) + (j + 2 + (ring_segments - 1)));
-                        indices.push_back(ring_segments * (i - 1) + j + 2 + ring_segments);
-                    }
-                }
-            }
-        }
-
-
-
-        // indices = {
-        //     0, 1, 2,
-        //     0, 2, 3,
-        //     0, 3, 1,
-
-        //     1, 2, 5,
-        //     5, 4, 1,
-        //     2, 3, 6,
-        //     6, 5, 2,
-        //     3, 6, 1,
-        //     1, 4, 6,
-
-        //     7, 4, 5,
-        //     7, 5, 6,
-        //     7, 6, 4
-        // };
-
-               
 
         glGenVertexArrays(1, &VAO);
         glBindVertexArray(VAO);
 
         glGenBuffers(1, &VBO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * mesh.vertices_size, mesh.vertices.get(), GL_STATIC_DRAW);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void*)(0));
         glEnableVertexAttribArray(0);
@@ -260,7 +162,7 @@ private:
 
         glGenBuffers(1, &EBO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * indices.size(), indices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * mesh.indices_size, mesh.indices.get(), GL_STATIC_DRAW);
     }
 
 
@@ -270,7 +172,7 @@ private:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         shader.use();
 
-        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
+        glDrawElements(GL_TRIANGLES, mesh.indices_size, GL_UNSIGNED_INT, nullptr);
         // glDrawArrays(GL_POINTS, 0, vertices.size());
     }
 
@@ -298,14 +200,24 @@ private:
             model = glm::rotate(model, glm::radians(-rotate_angle * delta_time), glm::vec3(0.0f, 1.0f, 0.0f));
             shader.set_mat4("model", model);
         }
+        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        {
+            model = glm::rotate(model, glm::radians(rotate_angle * delta_time), glm::vec3(1.0f, 0.0f, 0.0f));
+            shader.set_mat4("model", model);
+        }
+        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        {
+            model = glm::rotate(model, glm::radians(-rotate_angle * delta_time), glm::vec3(1.0f, 0.0f, 0.0f));
+            shader.set_mat4("model", model);
+        }
     }
 
 
     Mesh get_circle_mesh(uint32_t vertices_count, float radius)
     {
-        if (vertices_count < 3)
+        if (vertices_count < 3 || radius <= 0.0f)
         {
-            throw std::runtime_error("Wrong vertices count");
+            throw std::runtime_error("Wrong parameters");
         }
         Mesh result_mesh;
         result_mesh.vertices_size = vertices_count + 1;
@@ -331,6 +243,117 @@ private:
             result_mesh.indices[i * 3 + 2] = (i + 1) % vertices_count + 1;
         }
         
+        return result_mesh;
+    }
+
+
+    Mesh get_sphere_mesh(uint32_t segments, uint32_t ring_segments, float radius)
+    {
+        if (segments < 2 || ring_segments < 3 || radius <= 0.0f)
+        {
+            throw std::runtime_error("Wrong parameters");
+        }
+        Mesh result_mesh;
+        result_mesh.vertices_size = ring_segments * (segments - 1) + 2;
+        result_mesh.indices_size = 6 * ring_segments * (segments - 1);
+        result_mesh.vertices = std::make_unique<Vertex[]>(result_mesh.vertices_size);
+        result_mesh.indices = std::make_unique<uint32_t[]>(result_mesh.indices_size);
+
+        float alpha_step = 180 / static_cast<float>(segments);
+        float beta_step = 360 / static_cast<float>(ring_segments);
+
+        uint32_t count = 0;
+        for (uint32_t i = 0; i <= segments; i++)
+        {
+            float alpha = glm::radians(i * alpha_step);
+            float sin_alpha = std::sinf(alpha);
+            float cos_alpha = std::cosf(alpha);
+            float radius_dot_sin_alpha = radius * sin_alpha;
+            float y = radius * cos_alpha;
+
+            for (uint32_t j = 0; j < ring_segments; j++)
+            {
+                float beta = glm::radians(j * beta_step);
+                float sin_beta = std::sinf(beta);
+                float cos_beta = std::cosf(beta);
+                float x = radius_dot_sin_alpha * sin_beta;
+                float z = radius_dot_sin_alpha * cos_beta;
+                
+                result_mesh.vertices[count] = Vertex{glm::vec3(x, y, z), glm::vec3((rand() % 255) / 255.0f, (rand() % 255) / 255.0f, (rand() % 255) / 255.0f)};
+                count++;
+
+                if (i == 0 || i == segments)
+                {
+                    break;
+                }
+            }
+        }
+
+        count = 0;
+        for (uint32_t i = 0; i < segments; i++)
+        {
+            for (uint32_t j = 0; j < ring_segments; j++)
+            {
+                if (i == 0)
+                {
+                    indices.push_back(i);
+                    indices.push_back(i + j + 1);
+                    if (j == ring_segments - 1)
+                        indices.push_back((i + j + 2) % ring_segments);
+                    else
+                        indices.push_back(i + j + 2);
+
+                    result_mesh.indices[count] = i;
+                    result_mesh.indices[count + 1] = i + j + 1;
+                    if (j == ring_segments - 1)
+                        result_mesh.indices[count + 2] = (i + j + 2) % ring_segments;
+                    else
+                        result_mesh.indices[count + 2] = i + j + 2;
+                    
+                    count += 3;
+                }
+                else if (i == segments - 1)
+                {
+                    result_mesh.indices[count] = ring_segments * i + 1;
+                    result_mesh.indices[count + 1] = ring_segments * (i - 1) + j + 1;
+                    if (j == ring_segments - 1)
+                        result_mesh.indices[count + 2] = ring_segments * (i - 1) + (j + 2) % ring_segments;
+                    else
+                        result_mesh.indices[count + 2] = ring_segments * (i - 1) + j + 2;
+
+                    count += 3;
+                }
+                else
+                {
+                    result_mesh.indices[count] = ring_segments * (i - 1) + j + 1;
+                    if (j == ring_segments - 1)
+                    {
+                        result_mesh.indices[count + 1] = ring_segments * (i - 1) + (j + 2) % ring_segments;
+                        result_mesh.indices[count + 2] = ring_segments * (i - 1) + (j + 2);
+                    }
+                    else
+                    {
+                        result_mesh.indices[count + 1] = ring_segments * (i - 1) + (j + 2);
+                        result_mesh.indices[count + 2] = ring_segments * (i - 1) + j + 2 + ring_segments;
+                    }
+
+                    result_mesh.indices[count + 3] = ring_segments * (i - 1) + j + 1;
+                    if (j == ring_segments - 1)
+                    {
+                        result_mesh.indices[count + 4] = ring_segments * (i - 1) + (j + 2 + (ring_segments - 1));
+                        result_mesh.indices[count + 5] = ring_segments * (i - 1) + (j + 2);
+                    }
+                    else
+                    {
+                        result_mesh.indices[count + 4] = ring_segments * (i - 1) + (j + 2 + (ring_segments - 1));
+                        result_mesh.indices[count + 5] = ring_segments * (i - 1) + j + 2 + ring_segments;
+                    }
+
+                    count += 6;
+                }
+            }
+        }
+
         return result_mesh;
     }
 
