@@ -60,8 +60,8 @@ private:
 
     struct Mesh
     {
-        std::vector<Vertex> vertices;
-        std::vector<uint32_t> indices;
+        std::vector<Vertex> vertices {};
+        std::vector<uint32_t> indices {};
     };
 
     Mesh mesh;
@@ -181,7 +181,7 @@ private:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         shader.use();
 
-        glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, nullptr);
+        glDrawElements(GL_TRIANGLES, static_cast<int32_t>(mesh.indices.size()), GL_UNSIGNED_INT, nullptr);
     };
 
     void connect_mesh_with_ogl_buffers()
