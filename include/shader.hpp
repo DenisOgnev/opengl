@@ -21,7 +21,8 @@ public:
 
     Shader() = default;
     Shader(const std::string &_vertex_path, const std::string &_fragment_path) : vertex_path{_vertex_path}, fragment_path{_fragment_path}{};
-
+    Shader(const Shader& shader) = delete;
+    
     Shader& operator=(Shader&& shader)
     {
         if (this == &shader)
@@ -34,7 +35,7 @@ public:
         std::swap(ID, shader.ID);
 
         return *this;
-    }
+    };
 
     void init()
     {
@@ -128,6 +129,7 @@ public:
     {
         if (ID)
         {
+            std::cout << "~Shader()\n";
             glDeleteProgram(ID);
         }
     };

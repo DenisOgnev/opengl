@@ -11,6 +11,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "shader.hpp"
+#include "model.hpp"
 
 const std::string WINDOW_NAME{"OpenGL"};
 constexpr int32_t WIDTH{800};
@@ -34,6 +35,7 @@ public:
     {
         glDeleteVertexArrays(1, &VAO);
         glDeleteBuffers(1, &VBO);
+        glDeleteBuffers(1, &EBO);
         glfwDestroyWindow(window);
         glfwTerminate();
     };
@@ -72,6 +74,8 @@ private:
 
     float rotate_angle = 30.0f;
     float delta_time = 0.0f;
+
+    Model cube {};
 
     void main_loop()
     {
@@ -132,61 +136,66 @@ private:
 
     void create_shaders()
     {
-        shader = Shader(shaders_path.first, shaders_path.second);
-        shader.init();
-        shader.use();
+        // shader = Shader(shaders_path.first, shaders_path.second);
+        // shader.init();
+        // shader.use();
     };
 
     void create_mvp_matrices()
     {
-        model = glm::mat4(1.0f);
-        model = glm::scale(model, glm::vec3(0.7f));
-        view = glm::mat4(1.0f);
-        view = glm::translate(view, glm::vec3(0.0f, 0.0f, -1.0f));
+        model = glm::scale(glm::mat4(1.0f), glm::vec3(0.7f));
+        view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
         projection = glm::perspective(glm::radians(45.0f), width / static_cast<float>(height), 0.1f, 100.0f);
 
-        shader.set_mat4("model", model);
-        shader.set_mat4("view", view);
-        shader.set_mat4("projection", projection);
+        // shader.set_mat4("model", model);
+        // shader.set_mat4("view", view);
+        // shader.set_mat4("projection", projection);
     }
 
     void create_objects()
     {
-        uint32_t segments = 8;
-        uint32_t ring_segments = 8;
-        float radius = 0.5f;
-        mesh = get_sphere_mesh(segments, ring_segments, radius, glm::vec3{0.5f, 0.1f, 0.2f});
+        // uint32_t segments = 8;
+        // uint32_t ring_segments = 8;
+        // float radius = 0.5f;
+        // mesh = get_sphere_mesh(segments, ring_segments, radius, glm::vec3{0.5f, 0.1f, 0.2f});
 
-        glGenVertexArrays(1, &VAO);
-        glBindVertexArray(VAO);
+        // glGenVertexArrays(1, &VAO);
+        // glBindVertexArray(VAO);
 
-        glGenBuffers(1, &VBO);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * mesh.vertices.size(), mesh.vertices.data(), GL_STATIC_DRAW);
+        // glGenBuffers(1, &VBO);
+        // glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        // glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * mesh.vertices.size(), mesh.vertices.data(), GL_STATIC_DRAW);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *)(0));
-        glEnableVertexAttribArray(0);
+        // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *)(0));
+        // glEnableVertexAttribArray(0);
 
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *)(sizeof(float) * 3));
-        glEnableVertexAttribArray(1);
+        // glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *)(sizeof(float) * 3));
+        // glEnableVertexAttribArray(1);
 
-        glGenBuffers(1, &EBO);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * mesh.indices.size(), mesh.indices.data(), GL_STATIC_DRAW);
+        // glGenBuffers(1, &EBO);
+        // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        // glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * mesh.indices.size(), mesh.indices.data(), GL_STATIC_DRAW);
+
+        // Mesh cube_mesh {
+        //     {
+        //         {glm::vec3(1.0f), glm::vec3(1.0f), glm::vec3(1.0f)},
+        //     }
+        // };
+        Mesh mesh {
+            {
+                {glm::vec3(1.0f), glm::vec3(2.0f), glm::vec3(3.0f)}, 
+                {}
+            }
+        };
     };
 
     void render()
     {
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        shader.use();
 
-        glDrawElements(GL_TRIANGLES, static_cast<int32_t>(mesh.indices.size()), GL_UNSIGNED_INT, nullptr);
-    };
-
-    void connect_mesh_with_ogl_buffers()
-    {
-        // todo
+        // shader.use();
+        // glDrawElements(GL_TRIANGLES, static_cast<int32_t>(mesh.indices.size()), GL_UNSIGNED_INT, nullptr);
     };
 
     void update_variables()
@@ -377,15 +386,36 @@ private:
 
 int main()
 {
-    OpenGlApp app{WINDOW_NAME, WIDTH, HEIGHT};
-    try
+    // OpenGlApp app{WINDOW_NAME, WIDTH, HEIGHT};
+    // try
+    // {
+    //     app.run();
+    // }
+    // catch (const std::exception &e)
+    // {
+    //     std::cerr << e.what() << "\n";
+    //     return 1;
+    // }
+
+    struct Test
     {
-        app.run();
-    }
-    catch (const std::exception &e)
+        glm::vec3 a {};
+        glm::vec3 b {};
+        glm::vec3 c {};
+    };
+
+    struct Vec
     {
-        std::cerr << e.what() << "\n";
-        return 1;
-    }
+        std::vector<Test> stvec {};
+    };
+
+    Mesh v {
+        {
+            {glm::vec3(1.0f), glm::vec3(2.0f), glm::vec3(3.0f)}, 
+            {}
+        }
+    };
+
+
     return 0;
 }
