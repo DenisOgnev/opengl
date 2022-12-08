@@ -5,9 +5,10 @@
 
 struct Transform
 {
-    glm::mat4 model{};
-    glm::mat4 view{};
-    glm::mat4 projection{};
+    glm::vec3 translate;
+    glm::vec3 rotate_axis;
+    float angle;
+    glm::vec3 scale;
 };
 
 

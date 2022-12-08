@@ -14,8 +14,8 @@
 #include "model.hpp"
 
 const std::string WINDOW_NAME{"OpenGL"};
-constexpr int32_t WIDTH{800};
-constexpr int32_t HEIGHT{600};
+constexpr int32_t WIDTH{1280};
+constexpr int32_t HEIGHT{720};
 
 class OpenGlApp
 {
@@ -33,9 +33,6 @@ public:
 
     ~OpenGlApp()
     {
-        glDeleteVertexArrays(1, &VAO);
-        glDeleteBuffers(1, &VBO);
-        glDeleteBuffers(1, &EBO);
         glfwDestroyWindow(window);
         glfwTerminate();
     };
@@ -47,35 +44,24 @@ private:
 
     GLFWwindow *window;
 
-    uint32_t VAO;
-    uint32_t VBO;
-    uint32_t EBO;
-    Shader shader;
+    Shader sphere_shader;
+    Shader light_shader;
 
-    std::pair<const std::string, const std::string> shaders_path{"../../src/vert_shader.vert", "../../src/frag_shader.frag"};
-
-    struct Vertex
-    {
-        glm::vec3 position {};
-        glm::vec3 color {};
+    std::vector<std::pair<const std::string, const std::string>> shaders_paths{
+        {"../../src/shaders/vert_shader.vert", "../../src/shaders/frag_shader.frag"},
+        {"../../src/shaders/light_shader.vert", "../../src/shaders/light_shader.frag"},
     };
 
-    struct Mesh
-    {
-        std::vector<Vertex> vertices {};
-        std::vector<uint32_t> indices {};
-    };
-
-    Mesh mesh;
-
-    glm::mat4 model;
+    glm::vec3 camera_pos{0.0f, 0.0f, -1.0f};
     glm::mat4 view;
     glm::mat4 projection;
 
     float rotate_angle = 30.0f;
     float delta_time = 0.0f;
+    float last_time = 0.0f;
 
-    Model cube {};
+    std::unique_ptr<Drawable> sphere;
+    std::unique_ptr<Drawable> sphere2;
 
     void main_loop()
     {
@@ -136,57 +122,31 @@ private:
 
     void create_shaders()
     {
-        // shader = Shader(shaders_path.first, shaders_path.second);
-        // shader.init();
-        // shader.use();
+        sphere_shader = Shader(shaders_paths[0].first, shaders_paths[0].second);
+        sphere_shader.init();
+
+        light_shader = Shader(shaders_paths[1].first, shaders_paths[1].second);
+        light_shader.init();
     };
 
     void create_mvp_matrices()
     {
-        model = glm::scale(glm::mat4(1.0f), glm::vec3(0.7f));
-        view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+        view = glm::translate(glm::mat4(1.0f), camera_pos);
         projection = glm::perspective(glm::radians(45.0f), width / static_cast<float>(height), 0.1f, 100.0f);
-
-        // shader.set_mat4("model", model);
-        // shader.set_mat4("view", view);
-        // shader.set_mat4("projection", projection);
     }
 
     void create_objects()
     {
-        // uint32_t segments = 8;
-        // uint32_t ring_segments = 8;
-        // float radius = 0.5f;
-        // mesh = get_sphere_mesh(segments, ring_segments, radius, glm::vec3{0.5f, 0.1f, 0.2f});
+        uint32_t segments = 16;
+        uint32_t ring_segments = 16;
+        float radius = 0.5f;
 
-        // glGenVertexArrays(1, &VAO);
-        // glBindVertexArray(VAO);
+        Mesh sphere_mesh = get_sphere_mesh(segments, ring_segments, radius, glm::vec3{0.5f, 0.1f, 0.2f});
+        Transform transform{glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f), 0.0f, glm::vec3(0.3f)};
+        sphere = std::make_unique<ModelIndexed>(sphere_mesh, transform, view, projection);
 
-        // glGenBuffers(1, &VBO);
-        // glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        // glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * mesh.vertices.size(), mesh.vertices.data(), GL_STATIC_DRAW);
-
-        // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *)(0));
-        // glEnableVertexAttribArray(0);
-
-        // glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *)(sizeof(float) * 3));
-        // glEnableVertexAttribArray(1);
-
-        // glGenBuffers(1, &EBO);
-        // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        // glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * mesh.indices.size(), mesh.indices.data(), GL_STATIC_DRAW);
-
-        // Mesh cube_mesh {
-        //     {
-        //         {glm::vec3(1.0f), glm::vec3(1.0f), glm::vec3(1.0f)},
-        //     }
-        // };
-        Mesh mesh {
-            {
-                {glm::vec3(1.0f), glm::vec3(2.0f), glm::vec3(3.0f)}, 
-                {}
-            }
-        };
+        transform.translate = glm::vec3(-0.5f, 0.0f, 0.0f);
+        sphere2 = std::make_unique<ModelIndexed>(sphere_mesh, transform, view, projection);
     };
 
     void render()
@@ -194,14 +154,30 @@ private:
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // shader.use();
-        // glDrawElements(GL_TRIANGLES, static_cast<int32_t>(mesh.indices.size()), GL_UNSIGNED_INT, nullptr);
+        sphere_shader.use();
+        sphere_shader.set_vec3("light_color", glm::vec3(1.0f));
+        sphere_shader.set_vec3("input_color", sphere->get_color());
+        sphere_shader.set_vec3("light_position", sphere2->get_transform().translate);
+        sphere_shader.set_vec3("view_position", -camera_pos);
+
+        sphere->draw(sphere_shader);
+
+        float x{static_cast<float>(cos(glfwGetTime())) / 2.0f};
+        float z{static_cast<float>(sin(glfwGetTime())) / 2.0f};
+        std::cout << cos(glfwGetTime()) << " " << sin(glfwGetTime()) << "\n";
+
+        auto transform{sphere2->get_transform()};
+        transform.translate = glm::vec3(x, 0.0f, z);
+
+        sphere2->update_transform(transform);
+
+        sphere2->draw(light_shader);
     };
 
     void update_variables()
     {
-        delta_time = static_cast<float>(glfwGetTime());
-        glfwSetTime(0.0);
+        delta_time = static_cast<float>(glfwGetTime()) - last_time;
+        last_time = static_cast<float>(glfwGetTime());
     };
 
     void process_input()
@@ -212,152 +188,29 @@ private:
         }
         if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
         {
-            model = glm::rotate(model, glm::radians(rotate_angle * delta_time), glm::vec3(0.0f, 1.0f, 0.0f));
-            shader.set_mat4("model", model);
+            sphere->rotate(glm::vec3(0.0f, 1.0f, 0.0f), rotate_angle * delta_time);
+            sphere2->rotate(glm::vec3(0.0f, 1.0f, 0.0f), rotate_angle * delta_time);
         }
         if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
         {
-            model = glm::rotate(model, glm::radians(-rotate_angle * delta_time), glm::vec3(0.0f, 1.0f, 0.0f));
-            shader.set_mat4("model", model);
+            sphere->rotate(glm::vec3(0.0f, 1.0f, 0.0f), -rotate_angle * delta_time);
+            sphere2->rotate(glm::vec3(0.0f, 1.0f, 0.0f), -rotate_angle * delta_time);
         }
         if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
         {
-            model = glm::rotate(model, glm::radians(rotate_angle * delta_time), glm::vec3(1.0f, 0.0f, 0.0f));
-            shader.set_mat4("model", model);
+            sphere->rotate(glm::vec3(1.0f, 0.0f, 0.0f), rotate_angle * delta_time);
+            sphere2->rotate(glm::vec3(1.0f, 0.0f, 0.0f), rotate_angle * delta_time);
         }
         if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
         {
-            model = glm::rotate(model, glm::radians(-rotate_angle * delta_time), glm::vec3(1.0f, 0.0f, 0.0f));
-            shader.set_mat4("model", model);
+            sphere->rotate(glm::vec3(1.0f, 0.0f, 0.0f), -rotate_angle * delta_time);
+            sphere2->rotate(glm::vec3(1.0f, 0.0f, 0.0f), -rotate_angle * delta_time);
         }
     };
 
-    Mesh get_circle_mesh(uint32_t vertices_count, float radius, const glm::vec3& color)
+    static void framebuffer_size_callback(GLFWwindow *window, int32_t _width, int32_t _height)
     {
-        if (vertices_count < 3 || radius <= 0.0f)
-        {
-            throw std::runtime_error("Wrong parameters");
-        }
-        Mesh result_mesh;
-        result_mesh.vertices.reserve(vertices_count + 1);
-        result_mesh.indices.reserve(vertices_count * 3);
-
-        float angle = 360 / static_cast<float>(vertices_count);
-
-        result_mesh.vertices.push_back(Vertex{glm::vec3(0.0f), color});
-
-        for (uint32_t i = 0; i < vertices_count; i++)
-        {
-            float current_angle = glm::radians(static_cast<float>(i) * angle);
-
-            float x = radius * std::cosf(current_angle);
-            float y = radius * std::sinf(current_angle);
-
-            result_mesh.vertices.push_back(Vertex{glm::vec3(x, y, 0.0f), color});
-
-            result_mesh.indices.push_back(0);
-            result_mesh.indices.push_back(i + 1);
-            result_mesh.indices.push_back((i + 1) % vertices_count + 1);
-        }
-
-        return result_mesh;
-    };
-
-    Mesh get_sphere_mesh(uint32_t segments, uint32_t ring_segments, float radius, const glm::vec3& color)
-    {
-        if (segments < 2 || ring_segments < 3 || radius <= 0.0f)
-        {
-            throw std::runtime_error("Wrong parameters");
-        }
-        Mesh result_mesh;
-        result_mesh.vertices.reserve(ring_segments * (segments - 1) + 2);
-        result_mesh.indices.reserve(6 * ring_segments * (segments - 1));
-
-        float alpha_step = 180 / static_cast<float>(segments);
-        float beta_step = 360 / static_cast<float>(ring_segments);
-
-        for (uint32_t i = 0; i <= segments; i++)
-        {
-            float alpha = glm::radians(i * alpha_step);
-            float sin_alpha = std::sinf(alpha);
-            float cos_alpha = std::cosf(alpha);
-            float radius_dot_sin_alpha = radius * sin_alpha;
-            float y = radius * cos_alpha;
-
-            for (uint32_t j = 0; j < ring_segments; j++)
-            {
-                float beta = glm::radians(j * beta_step);
-                float sin_beta = std::sinf(beta);
-                float cos_beta = std::cosf(beta);
-                float x = radius_dot_sin_alpha * sin_beta;
-                float z = radius_dot_sin_alpha * cos_beta;
-
-                result_mesh.vertices.push_back(Vertex{glm::vec3(x, y, z), color});
-
-                if (i == 0 || i == segments)
-                {
-                    break;
-                }
-            }
-        }
-
-        for (uint32_t i = 0; i < segments; i++)
-        {
-            for (uint32_t j = 0; j < ring_segments; j++)
-            {
-                if (i == 0)
-                {
-                    result_mesh.indices.push_back(i);
-                    result_mesh.indices.push_back(i + j + 1);
-                    if (j == ring_segments - 1)
-                        result_mesh.indices.push_back((i + j + 2) % ring_segments);
-                    else
-                        result_mesh.indices.push_back(i + j + 2);
-                }
-                else if (i == segments - 1)
-                {
-                    result_mesh.indices.push_back(ring_segments * i + 1);
-                    result_mesh.indices.push_back(ring_segments * (i - 1) + j + 1);
-                    if (j == ring_segments - 1)
-                        result_mesh.indices.push_back(ring_segments * (i - 1) + (j + 2) % ring_segments);
-                    else
-                        result_mesh.indices.push_back(ring_segments * (i - 1) + j + 2);
-                }
-                else
-                {
-                    result_mesh.indices.push_back(ring_segments * (i - 1) + j + 1);
-                    if (j == ring_segments - 1)
-                    {
-                        result_mesh.indices.push_back(ring_segments * (i - 1) + (j + 2) % ring_segments);
-                        result_mesh.indices.push_back(ring_segments * (i - 1) + (j + 2));
-                    }
-                    else
-                    {
-                        result_mesh.indices.push_back(ring_segments * (i - 1) + (j + 2));
-                        result_mesh.indices.push_back(ring_segments * (i - 1) + j + 2 + ring_segments);
-                    }
-
-                    result_mesh.indices.push_back(ring_segments * (i - 1) + j + 1);
-                    if (j == ring_segments - 1)
-                    {
-                        result_mesh.indices.push_back(ring_segments * (i - 1) + (j + 2 + (ring_segments - 1)));
-                        result_mesh.indices.push_back(ring_segments * (i - 1) + (j + 2));
-                    }
-                    else
-                    {
-                        result_mesh.indices.push_back(ring_segments * (i - 1) + (j + 2 + (ring_segments - 1)));
-                        result_mesh.indices.push_back(ring_segments * (i - 1) + j + 2 + ring_segments);
-                    }
-                }
-            }
-        }
-
-        return result_mesh;
-    };
-
-    static void framebuffer_size_callback(GLFWwindow* window, int32_t _width, int32_t _height)
-    {
-        auto app = reinterpret_cast<OpenGlApp*>(glfwGetWindowUserPointer(window));
+        auto app = reinterpret_cast<OpenGlApp *>(glfwGetWindowUserPointer(window));
         app->framebuffer_size_resize(_width, _height);
     };
     void framebuffer_size_resize(int32_t _width, int32_t _height)
@@ -367,7 +220,7 @@ private:
         glViewport(0, 0, width, height);
 
         projection = glm::perspective(glm::radians(45.0f), width / static_cast<float>(height), 0.1f, 100.0f);
-        shader.set_mat4("projection", projection);
+        sphere_shader.set_mat4("projection", projection);
     };
 
     int clamp(int32_t value, int32_t lowest, int32_t highest)
@@ -386,36 +239,16 @@ private:
 
 int main()
 {
-    // OpenGlApp app{WINDOW_NAME, WIDTH, HEIGHT};
-    // try
-    // {
-    //     app.run();
-    // }
-    // catch (const std::exception &e)
-    // {
-    //     std::cerr << e.what() << "\n";
-    //     return 1;
-    // }
-
-    struct Test
+    OpenGlApp app{WINDOW_NAME, WIDTH, HEIGHT};
+    try
     {
-        glm::vec3 a {};
-        glm::vec3 b {};
-        glm::vec3 c {};
-    };
-
-    struct Vec
+        app.run();
+    }
+    catch (const std::exception &e)
     {
-        std::vector<Test> stvec {};
-    };
-
-    Mesh v {
-        {
-            {glm::vec3(1.0f), glm::vec3(2.0f), glm::vec3(3.0f)}, 
-            {}
-        }
-    };
-
+        std::cerr << e.what() << "\n";
+        return 1;
+    }
 
     return 0;
 }
